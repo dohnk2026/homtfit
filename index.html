@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>홈트 카드</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: #111827;
+      color: #f9fafb;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      height: 100vh; height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .screen {
+      display: none;
+      width: 100%;
+      max-width: 420px;
+      height: 100%;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 24px;
+    }
+    .screen.active { display: flex; }
+
+    /* ═══ START ═══ */
+    #startScreen { justify-content: center; gap: 36px; }
+
+    .title h1 { font-size: 2rem; font-weight: 800; letter-spacing: 2px; text-align: center; }
+    .title p   { color: #6b7280; font-size: 0.85rem; margin-top: 8px; text-align: center; }
+
+    .today-badge {
+      display: none;
+      background: #1f2937; border: 1px solid #374151;
+      border-radius: 12px; padding: 10px 20px;
+      font-size: 0.85rem; color: #9ca3af; text-align: center; width: 100%;
+    }
+    .today-badge strong { color: #60a5fa; }
+
+    .deck-stack { position: relative; width: 150px; height: 220px; margin: 0 auto; }
+    .stacked {
+      position: absolute; width: 150px; height: 220px;
+      border-radius: 18px; background: #1f2937; border: 2px solid #374151;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    }
+    .stacked:nth-child(1) { transform: rotate(-4deg) translate(-3px, 6px); }
+    .stacked:nth-child(2) { transform: rotate(-2deg) translate(-1px, 3px); }
+    .stacked:nth-child(3) { transform: rotate(0deg); }
+    .stacked-icon  { font-size: 2.4rem; }
+    .stacked-label { font-size: 0.58rem; color: #374151; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; }
+
+    .btn-start {
+      width: 100%; padding: 20px; border-radius: 18px; border: none;
+      background: #3b82f6; color: #fff; font-size: 1.15rem; font-weight: 800; letter-spacing: 1px;
+      cursor: pointer; transition: all 0.12s;
+    }
+    .btn-start:active { background: #2563eb; transform: scale(0.98); }
+
+    /* ═══ GAME ═══ */
+    #gameScreen { justify-content: space-between; padding-top: 20px; padding-bottom: 32px; }
+
+    .g-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .g-count  { font-size: 0.85rem; color: #6b7280; }
+    .g-count strong { color: #f9fafb; font-size: 1.1rem; }
+    .g-phase  { font-size: 0.68rem; color: #4b5563; letter-spacing: 2px; text-transform: uppercase; }
+    .g-bar-wrap { width: 100%; height: 3px; background: #1f2937; border-radius: 2px; margin-bottom: 6px; }
+    .g-bar { height: 100%; background: #3b82f6; border-radius: 2px; transition: width 0.5s ease; }
+
+    .btn-stop {
+      background: none; border: none; color: #374151; font-size: 0.72rem;
+      cursor: pointer; padding: 2px 0; transition: color 0.15s;
+    }
+    .btn-stop:hover { color: #ef4444; }
+
+    .card-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .flip-hint {
+      font-size: 0.78rem; color: #4b5563; text-align: center;
+      min-height: 20px; transition: opacity 0.3s;
+    }
+    .flip-hint.hidden { opacity: 0; }
+
+    /* Card */
+    .card-scene {
+      width: 200px; height: 290px;
+      touch-action: none; cursor: grab;
+    }
+    .card-scene canvas { border-radius: 16px; display: block; }
+
+    /* Dumbbell weight picker */
+    .weight-picker {
+      display: none;
+      align-items: center; justify-content: center; gap: 16px;
+      background: #1f2937; border-radius: 14px;
+      padding: 10px 20px; width: 100%;
+    }
+    .weight-picker.show { display: flex; }
+    .w-val { font-size: 1.1rem; font-weight: 800; min-width: 64px; text-align: center; }
+    .w-sub { font-size: 0.58rem; color: #4b5563; text-align: center; margin-top: 2px; }
+    .w-btn {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 1px solid #374151; background: #111827;
+      color: #f9fafb; font-size: 1.3rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s;
+    }
+    .w-btn:active { background: #374151; }
+
+    /* Timer ring — used for prep / exercise / rest */
+    .timer-block { display: none; flex-direction: column; align-items: center; gap: 6px; }
+    .timer-block.show { display: flex; }
+
+    .ring-wrap { position: relative; width: 90px; height: 90px; }
+    .ring { width: 90px; height: 90px; transform: rotate(-90deg); }
+    .ring-bg  { fill: none; stroke: #1f2937; stroke-width: 7; }
+    .ring-arc {
+      fill: none; stroke: #3b82f6;
+      stroke-width: 7; stroke-linecap: round;
+      stroke-dasharray: 220; stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear;
+    }
+    .ring-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 900; }
+    .ring-lbl { font-size: 0.72rem; color: #6b7280; letter-spacing: 1px; }
+
+    /* Skip button */
+    .btn-skip {
+      display: none; width: 100%; padding: 14px; border-radius: 14px;
+      border: 1px solid #374151; background: transparent; color: #6b7280;
+      font-size: 0.9rem; cursor: pointer; transition: all 0.12s;
+    }
+    .btn-skip:active { background: #1f2937; }
+
+    /* ═══ COMPLETE ═══ */
+    #completeScreen {
+      justify-content: flex-start; gap: 24px;
+      padding-top: 40px; padding-bottom: 32px;
+      overflow-y: auto; touch-action: pan-y;
+    }
+
+    .done-icon  { font-size: 4rem; text-align: center; width: 100%; }
+    .done-title { font-size: 1.8rem; font-weight: 900; text-align: center; }
+    .done-sub   { color: #6b7280; font-size: 0.85rem; text-align: center; margin-top: 4px; }
+
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+    .stat-box  { background: #1f2937; border-radius: 16px; padding: 18px 14px; text-align: center; }
+    .stat-val  { font-size: 1.8rem; font-weight: 900; }
+    .stat-lbl  { font-size: 0.68rem; color: #6b7280; margin-top: 6px; }
+
+    .section-label { font-size: 0.68rem; color: #6b7280; letter-spacing: 2px; text-transform: uppercase; align-self: flex-start; }
+
+    .history-list { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+    .h-row { display: flex; align-items: center; gap: 12px; }
+    .h-date { color: #6b7280; min-width: 48px; font-size: 0.75rem; }
+    .h-bar-wrap { flex: 1; height: 6px; background: #1f2937; border-radius: 3px; overflow: hidden; }
+    .h-bar { height: 100%; background: #3b82f6; border-radius: 3px; }
+    .h-count { color: #9ca3af; min-width: 36px; text-align: right; font-weight: 700; font-size: 0.8rem; }
+
+    .weight-log { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+    .w-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #1f2937; border-radius: 10px; }
+    .w-row-name { color: #9ca3af; font-size: 0.82rem; }
+    .w-row-val  { color: #60a5fa; font-weight: 700; font-size: 0.82rem; }
+
+    .session-cards { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+    .sc-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; background: #1f2937; border-radius: 10px;
+    }
+    .sc-suit { font-size: 0.95rem; min-width: 18px; }
+    .sc-val  { font-size: 0.7rem; color: #4b5563; min-width: 22px; }
+    .sc-name { flex: 1; font-size: 0.82rem; color: #e5e7eb; }
+    .sc-reps { font-size: 0.75rem; color: #6b7280; }
+
+    .btn-again {
+      width: 100%; padding: 20px; border-radius: 18px; border: none;
+      background: #3b82f6; color: #fff; font-size: 1.1rem; font-weight: 800;
+      cursor: pointer; transition: all 0.12s;
+    }
+    .btn-again:active { background: #2563eb; transform: scale(0.98); }
+  </style>
+</head>
+<body>
+
+<!-- ══ START ══ -->
+<div class="screen active" id="startScreen">
+  <div class="title">
+    <h1>🃏 홈트 카드</h1>
+    <p>52장을 모두 완료하면 오늘 운동 끝!</p>
+  </div>
+
+  <div class="today-badge" id="todayBadge"></div>
+
+  <div class="deck-stack">
+    <div class="stacked"><div class="stacked-icon">💪</div><div class="stacked-label">Homtfit</div></div>
+    <div class="stacked"><div class="stacked-icon">💪</div><div class="stacked-label">Homtfit</div></div>
+    <div class="stacked"><div class="stacked-icon">💪</div><div class="stacked-label">Homtfit</div></div>
+  </div>
+
+  <button class="btn-start" onclick="startGame()">운동 시작</button>
+</div>
+
+<!-- ══ GAME ══ -->
+<div class="screen" id="gameScreen">
+  <div style="width:100%">
+    <div class="g-header">
+      <div class="g-count"><strong id="gCur">0</strong> / 52 장</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button onclick="toggleMusic()" id="btnMusic" title="음악" style="background:none;border:none;font-size:1.1rem;cursor:pointer;opacity:0.45;transition:opacity 0.2s;padding:2px">🎵</button>
+        <div class="g-phase" id="gPhase"></div>
+      </div>
+    </div>
+    <div class="g-bar-wrap"><div class="g-bar" id="gBar" style="width:0%"></div></div>
+    <button class="btn-stop" onclick="confirmStop()">운동 중단 ✕</button>
+  </div>
+
+  <div class="card-area">
+    <div style="position:relative;width:200px;height:290px;flex-shrink:0;">
+      <div class="card-scene" id="cardScene"></div>
+      <img id="cardChar" src="" alt="" style="position:absolute;left:38px;top:67px;width:124px;height:124px;object-fit:contain;pointer-events:none;opacity:0;transition:opacity 0.25s;">
+    </div>
+
+    <div class="flip-hint" id="flipHint"></div>
+
+    <div class="weight-picker" id="weightPicker">
+      <button class="w-btn" onclick="adjW(-4)">−</button>
+      <div>
+        <div class="w-val" id="wVal">12 kg</div>
+        <div class="w-sub">덤벨 무게</div>
+      </div>
+      <button class="w-btn" onclick="adjW(+4)">+</button>
+    </div>
+
+    <div class="timer-block" id="timerBlock">
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 90 90">
+          <circle class="ring-bg"  cx="45" cy="45" r="35"/>
+          <circle class="ring-arc" id="ringArc" cx="45" cy="45" r="35"/>
+        </svg>
+        <div class="ring-num" id="ringNum">0</div>
+      </div>
+      <div class="ring-lbl" id="ringLbl"></div>
+    </div>
+  </div>
+
+  <div style="width:100%">
+    <button class="btn-skip" id="btnSkip" onclick="skipPhase()">건너뛰기</button>
+  </div>
+</div>
+
+<!-- ══ COMPLETE ══ -->
+<div class="screen" id="completeScreen">
+  <div class="done-icon">🏆</div>
+  <div>
+    <div class="done-title" id="doneTitle">운동 완료!</div>
+    <div class="done-sub"   id="doneSub"></div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-box"><div class="stat-val" id="sCards">-</div><div class="stat-lbl">완료한 카드</div></div>
+    <div class="stat-box"><div class="stat-val" id="sTime">-</div><div class="stat-lbl">운동 시간</div></div>
+  </div>
+
+  <div class="section-label">덤벨 무게 기록</div>
+  <div class="weight-log" id="weightLog"></div>
+
+  <div class="section-label">최근 기록</div>
+  <div class="history-list" id="historyList"></div>
+
+  <button class="btn-again" onclick="goHome()">다시 하기</button>
+</div>
+
+<script>
+// ── Data ──
+const DECK_SIZE = 52;
+
+const SUITS = {
+  spade: {
+    sym: '♠', name: '하체', cls: 's-spade',
+    ex: [
+      { name: '스쿼트',          eq: 'body'     },
+      { name: '런지',            eq: 'body'     },
+      { name: '덤벨 데드리프트', eq: 'dumbbell' },
+    ]
+  },
+  heart: {
+    sym: '♥', name: '유산소', cls: 's-heart',
+    ex: [
+      { name: '버피',        eq: 'body'  },
+      { name: 'G2OH (원판)', eq: 'plate' },
+    ]
+  },
+  diamond: {
+    sym: '♦', name: '상체', cls: 's-diamond',
+    ex: [
+      { name: '푸쉬업',            eq: 'body'     },
+      { name: '덤벨 숄더프레스',   eq: 'dumbbell' },
+      { name: '덤벨 체스트프레스', eq: 'dumbbell' },
+      { name: '덤벨 로우',         eq: 'dumbbell' },
+      { name: '덤벨 컬',           eq: 'dumbbell' },
+      { name: '덤벨 사레레',       eq: 'dumbbell' },
+    ]
+  },
+  club: {
+    sym: '♣', name: '코어', cls: 's-club',
+    ex: [
+      { name: '레그레이즈', eq: 'body' },
+      { name: '크런치',     eq: 'body' },
+    ]
+  },
+};
+
+const VALS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const EQ_LABEL = { body: '맨몸', dumbbell: '덤벨', plate: '원판' };
+const EQ_DOT   = { body: 'e-body', dumbbell: 'e-dumbbell', plate: 'e-plate' };
+
+// 카드 번호 1~13 → 횟수 5~15 선형 매핑
+function toReps(v) {
+  const n = { A:1, J:11, Q:12, K:13 }[v] ?? +v;
+  return Math.round(5 + (n - 1) * 10 / 12);
+}
+
+// 운동 종류별 휴식 시간 (초)
+function calcRest(suitKey, reps) {
+  const base = { spade: 45, heart: 60, diamond: 35, club: 25 }[suitKey] ?? 40;
+  return base + Math.max(0, reps - 8) * 3;
+}
+
+// 운동 종류별 운동 시간 (초)
+function calcExerciseTime(suitKey, eq, reps) {
+  if (suitKey === 'heart') return reps * 4; // 유산소: 4초/회
+  if (suitKey === 'club')  return reps * 3; // 코어: 3초/회
+  if (eq === 'dumbbell')   return reps * 4; // 덤벨: 4초/회
+  return reps * 3;                          // 맨몸: 3초/회
+}
+
+// ── Storage ──
+const todayKey  = () => new Date().toISOString().slice(0, 10);
+const load = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+const getWeights = () => load('hc_weights') || {};
+const getHistory = () => load('hc_history') || {};
+const saveWeights = w => save('hc_weights', w);
+
+function recordSession(completed) {
+  if (cardCount === 0) return;
+  const h = getHistory(), k = todayKey();
+  h[k] = { completed, count: cardCount };
+  save('hc_history', h);
+}
+
+// ── State ──
+let deck = [], deckIdx = 0;
+let phase = 'idle'; // idle | prep | exercise | resting
+let cardCount = 0, t0 = null;
+let curCard = null, curWeight = 12;
+let weights = {}, sessionWeights = {};
+let ticker = null;
+
+// ── Deck ──
+function buildDeck() {
+  const d = [];
+  Object.entries(SUITS).forEach(([k, s]) =>
+    VALS.forEach(v => d.push({ k, s, v, r: toReps(v) }))
+  );
+  return d; // 52장
+}
+
+function shuffle(a) {
+  const b = [...a];
+  for (let i = b.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [b[i], b[j]] = [b[j], b[i]];
+  }
+  return b;
+}
+
+// ── Game Flow ──
+function startGame() {
+  weights = getWeights();
+  deck = shuffle(buildDeck());
+  deckIdx = 0;
+  cardCount = 0;
+  t0 = Date.now();
+  curCard = null;
+  phase = 'idle';
+  sessionWeights = {};
+
+  showScreen('gameScreen');
+  resetToBack(false);
+  document.getElementById('flipHint').classList.remove('hidden');
+  document.getElementById('gCur').textContent = '0';
+  document.getElementById('gBar').style.width = '0%';
+  document.getElementById('gPhase').textContent = '';
+  document.getElementById('timerBlock').classList.remove('show');
+  document.getElementById('btnSkip').style.display = 'none';
+  document.getElementById('weightPicker').classList.remove('show');
+  scheduleAutoFlip(3);
+}
+
+// 카드 드래그로 뒤집힌 직후 호출
+function onFlipped() {
+  curCard = deck[deckIdx++];
+  curCard.ex = pickEx(curCard.k);
+  renderFront(curCard);
+  showHint(false);
+  startPrep();
+}
+
+// 준비 카운트다운 (덤벨이면 8초, 아니면 3초)
+function startPrep() {
+  phase = 'prep';
+  const isDumbbell = curCard.ex.eq === 'dumbbell';
+  const total = isDumbbell ? 8 : 3;
+
+  if (isDumbbell) {
+    curWeight = weights[curCard.ex.name] ?? 12;
+    updateWDisplay();
+    document.getElementById('weightPicker').classList.add('show');
+  }
+
+  document.getElementById('gPhase').textContent = '준비 중';
+  startTimer(total, '#ef4444', '준비!', () => startExercise());
+}
+
+// 운동 카운트다운
+function startExercise() {
+  phase = 'exercise';
+  document.getElementById('weightPicker').classList.remove('show');
+
+  // 덤벨 무게 저장
+  if (curCard.ex.eq === 'dumbbell') {
+    weights[curCard.ex.name]        = curWeight;
+    sessionWeights[curCard.ex.name] = curWeight;
+    saveWeights(weights);
+  }
+
+  const total = calcExerciseTime(curCard.k, curCard.ex.eq, curCard.r);
+  document.getElementById('gPhase').textContent = '운동 중';
+  startTimer(total, '#f59e0b', '운동 중', () => beginRest());
+}
+
+// 휴식 카운트다운
+function beginRest() {
+  phase = 'resting';
+  cardCount++;
+  document.getElementById('gCur').textContent = cardCount;
+  document.getElementById('gBar').style.width = (cardCount / DECK_SIZE * 100) + '%';
+
+  const total = calcRest(curCard.k, curCard.r);
+  document.getElementById('gPhase').textContent = '휴식 중';
+  startTimer(total, '#3b82f6', '휴식', () => finishRest());
+}
+
+// 휴식 종료 → 다음 카드 또는 운동 완료
+function finishRest() {
+  if (deckIdx >= DECK_SIZE) {
+    endSession(true);
+    return;
+  }
+  phase = 'idle';
+  document.getElementById('timerBlock').classList.remove('show');
+  document.getElementById('btnSkip').style.display = 'none';
+  document.getElementById('gPhase').textContent = '';
+  resetToBack(true);
+  setTimeout(() => scheduleAutoFlip(3), 700);
+}
+
+// 현재 페이즈 건너뛰기
+function skipPhase() {
+  clearInterval(ticker);
+  if      (phase === 'prep')     startExercise();
+  else if (phase === 'exercise') beginRest();
+  else if (phase === 'resting')  finishRest();
+}
+
+function confirmStop() {
+  if (cardCount === 0 || confirm(`지금까지 ${cardCount}장 완료!\n운동을 중단할까요?`)) {
+    endSession(false);
+  }
+}
+
+function endSession(completed) {
+  clearInterval(ticker);
+  const elapsed = Math.round((Date.now() - t0) / 1000);
+  recordSession(completed);
+
+  const m = Math.floor(elapsed / 60), s = elapsed % 60;
+  document.getElementById('doneTitle').textContent = completed ? '오늘 운동 완료! 🎉' : '운동 수고했어요!';
+  document.getElementById('sCards').textContent    = cardCount;
+  document.getElementById('sTime').textContent     = m > 0 ? `${m}분 ${s}초` : `${s}초`;
+  document.getElementById('doneSub').textContent   = completed
+    ? '52장을 모두 완료했어요 💪'
+    : `${cardCount}개의 미션 완료!`;
+
+  renderWeightLog();
+  renderHistory();
+  showScreen('completeScreen');
+}
+
+function goHome() {
+  const h = getHistory(), k = todayKey();
+  const badge = document.getElementById('todayBadge');
+  const entry = h[k];
+  if (entry) {
+    const completed = entry === true || entry?.completed;
+    const cnt = entry === true ? 52 : (entry?.count ?? 0);
+    badge.style.display = 'block';
+    badge.innerHTML = completed
+      ? `오늘 완주 완료! 💪`
+      : `오늘 <strong>${cnt}장</strong> 완료`;
+  } else {
+    badge.style.display = 'none';
+  }
+  showScreen('startScreen');
+}
+
+// ── Timer 공통 함수 ──
+function startTimer(totalSecs, color, label, onDone) {
+  clearInterval(ticker);
+  let remaining = totalSecs;
+
+  const arc = document.getElementById('ringArc');
+  arc.style.transition = 'none';
+  arc.style.stroke = color;
+  const circ = 2 * Math.PI * 35;
+  arc.style.strokeDasharray  = circ;
+  arc.style.strokeDashoffset = 0;
+  document.getElementById('ringNum').textContent = remaining;
+  document.getElementById('ringLbl').textContent = label;
+  document.getElementById('timerBlock').classList.add('show');
+  document.getElementById('btnSkip').style.display = 'block';
+
+  // 리플로우 후 트랜지션 활성화
+  arc.getBoundingClientRect();
+  arc.style.transition = 'stroke-dashoffset 1s linear';
+
+  ticker = setInterval(() => {
+    remaining--;
+    document.getElementById('ringNum').textContent = remaining;
+    arc.style.strokeDashoffset = circ * (1 - remaining / totalSecs);
+    if (remaining <= 0) { clearInterval(ticker); onDone(); }
+  }, 1000);
+}
+
+// ── Helpers ──
+function pickEx(suitKey) {
+  const list = SUITS[suitKey].ex;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function adjW(delta) {
+  curWeight = Math.max(4, Math.min(24, curWeight + delta));
+  updateWDisplay();
+}
+function updateWDisplay() {
+  document.getElementById('wVal').textContent =
+    `${curWeight} kg`;
+}
+
+function renderFront(card) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 748;
+  const ctx = c.getContext('2d');
+  drawFrontCanvas(ctx, card);
+  const prev = _frontMat.map;
+  _frontMat.map = new THREE.CanvasTexture(c);
+  _frontMat.needsUpdate = true;
+  if (prev) prev.dispose();
+
+  // 캐릭터 이미지 DOM overlay
+  const charEl = document.getElementById('cardChar');
+  charEl.src = EX_IMG_MAP[card.ex.name] || '';
+}
+
+function resetToBack(animate) {
+  const charEl = document.getElementById('cardChar');
+  if (charEl) { charEl.style.opacity = '0'; charEl.src = ''; }
+  if (animate) {
+    _targetRotY = 0;
+  } else {
+    _rotY = 0; _targetRotY = 0;
+    if (_card) _card.rotation.y = 0;
+  }
+}
+
+function showHint(v) {
+  document.getElementById('flipHint').classList.toggle('hidden', !v);
+}
+
+function renderWeightLog() {
+  const entries = Object.entries(sessionWeights);
+  document.getElementById('weightLog').innerHTML = entries.length === 0
+    ? '<div style="color:#4b5563;font-size:0.8rem">이번 세션 덤벨 기록 없음</div>'
+    : entries.map(([name, kg]) =>
+        `<div class="w-row">
+          <div class="w-row-name">${name}</div>
+          <div class="w-row-val">${Number.isInteger(kg) ? kg : kg.toFixed(1)} kg</div>
+        </div>`
+      ).join('');
+}
+
+function renderHistory() {
+  const h = getHistory(), today = todayKey();
+  const keys = Object.keys(h).sort().reverse().slice(0, 7);
+  if (keys.length === 0) {
+    document.getElementById('historyList').innerHTML = '<div style="color:#4b5563;font-size:0.8rem;text-align:center">기록 없음</div>';
+    return;
+  }
+  const maxCount = Math.max(...keys.map(k => {
+    const e = h[k];
+    return e === true ? 52 : (e?.count ?? 0);
+  }));
+  document.getElementById('historyList').innerHTML = keys.map(k => {
+    const entry = h[k];
+    const completed = entry === true || entry?.completed;
+    const cnt = entry === true ? 52 : (entry?.count ?? 0);
+    const label = k === today ? '오늘' : k.slice(5).replace('-', '/');
+    const pct = maxCount > 0 ? Math.round(cnt / maxCount * 100) : 0;
+    return `<div class="h-row">
+      <div class="h-date">${label}</div>
+      <div class="h-bar-wrap"><div class="h-bar" style="width:${pct}%;background:${completed ? '#34d399' : '#3b82f6'}"></div></div>
+      <div class="h-count">${cnt}<span style="font-size:0.65rem;color:#4b5563">장</span></div>
+    </div>`;
+  }).join('');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Three.js 카드 ──
+let _scene, _cam, _ren, _card, _frontMat, _backMat;
+let _rotY = 0, _targetRotY = 0, _hoverT = 0;
+let _movingLight;
+
+const CARD_W = 2.6, CARD_H = 3.8, CARD_D = 0.07;
+const SUIT_COLOR = { spade:'#2563eb', heart:'#dc2626', diamond:'#d97706', club:'#16a34a' };
+
+const EX_IMG_MAP = {
+  '스쿼트':          'ex_squat.png',
+  '런지':            'ex_lunge.png',
+  '덤벨 데드리프트': 'ex_deadlift.png',
+  '버피':            'ex_burpee.png',
+  'G2OH (원판)':     'ex_g2oh.png',
+  '푸쉬업':          'ex_pushup.png',
+  '덤벨 숄더프레스': 'ex_shoulder.png',
+  '덤벨 체스트프레스':'ex_chest.png',
+  '덤벨 로우':       'ex_row.png',
+  '덤벨 컬':         'ex_curl.png',
+  '덤벨 사레레':     'ex_lateral.png',
+  '레그레이즈':      'ex_legraise.png',
+  '크런치':          'ex_crunch.png',
+};
+
+function initCard3D() {
+  const container = document.getElementById('cardScene');
+
+  _scene = new THREE.Scene();
+  _cam   = new THREE.PerspectiveCamera(45, 200/290, 0.1, 100);
+  _cam.position.z = 5.2;
+
+  _ren = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  _ren.setSize(200, 290);
+  _ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  _ren.toneMapping = THREE.ACESFilmicToneMapping;
+  _ren.toneMappingExposure = 1.1;
+  container.appendChild(_ren.domElement);
+
+  // 조명
+  _scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const key = new THREE.DirectionalLight(0xffffff, 1.4);
+  key.position.set(3, 4, 5); _scene.add(key);
+  _movingLight = new THREE.PointLight(0x88aaff, 2.0, 18);
+  _movingLight.position.set(-2, 1, 3); _scene.add(_movingLight);
+  const rim = new THREE.PointLight(0xff7744, 0.5, 14);
+  rim.position.set(0, -5, -3); _scene.add(rim);
+
+  // 카드 지오메트리 (얇은 박스)
+  const geo = new THREE.BoxGeometry(CARD_W, CARD_H, CARD_D);
+  const sideMat = new THREE.MeshPhysicalMaterial({ color: 0x1a2233, metalness: 0.4, roughness: 0.6 });
+
+  _backMat  = new THREE.MeshBasicMaterial({ map: makeBackTex() });
+  _frontMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+  // BoxGeometry 면 순서: +X,-X,+Y,-Y,+Z(카메라방향),-Z
+  // rotation.y=0 → +Z(앞)=뒷면 노출 / rotation.y=π → -Z=앞면 노출
+  _card = new THREE.Mesh(geo, [sideMat, sideMat, sideMat, sideMat, _backMat, _frontMat]);
+  _scene.add(_card);
+
+  // 렌더 루프
+  (function loop() {
+    requestAnimationFrame(loop);
+    _hoverT += 0.016;
+    _rotY += (_targetRotY - _rotY) * 0.09;
+    _card.rotation.y = _rotY;
+
+    if (phase === 'idle') {
+      _card.position.y = Math.sin(_hoverT * 0.75) * 0.05;
+      _card.rotation.z = Math.sin(_hoverT * 0.55) * 0.013;
+      _card.rotation.x = Math.sin(_hoverT * 0.45) * 0.009;
+    } else {
+      _card.position.y += (0 - _card.position.y) * 0.12;
+      _card.rotation.z += (0 - _card.rotation.z) * 0.12;
+      _card.rotation.x += (0 - _card.rotation.x) * 0.12;
+    }
+    _movingLight.position.x = Math.sin(_hoverT * 0.45) * 3.5;
+    _movingLight.position.y = Math.cos(_hoverT * 0.35) * 2.5;
+    _ren.render(_scene, _cam);
+
+    // 캐릭터 overlay: 카드가 앞면일 때만 표시
+    const charEl = document.getElementById('cardChar');
+    if (charEl) charEl.style.opacity = (Math.abs(_rotY - Math.PI) < 0.18) ? '1' : '0';
+  })();
+
+  // 드래그로 뒤집기
+  const el = _ren.domElement;
+  let startX = null, startRotY = 0, dragging = false;
+
+  el.addEventListener('pointerdown', e => {
+    if (phase !== 'idle') return;
+    clearTimeout(autoFlipTimer); clearInterval(autoFlipTick);
+    e.preventDefault();
+    startX = e.clientX; startRotY = _rotY; dragging = true;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = startX - e.clientX;
+    _rotY = Math.max(0, Math.min(Math.PI / 2, startRotY + dx * 0.016));
+    _targetRotY = _rotY;
+  });
+  el.addEventListener('pointerup', e => {
+    if (!dragging) return;
+    dragging = false;
+    const isTap = Math.abs(startX - e.clientX) < 8;
+    startX = null;
+    if (isTap || _rotY > Math.PI / 3) {
+      _targetRotY = Math.PI;
+      setTimeout(onFlipped, 400);
+    } else {
+      _targetRotY = 0;
+    }
+  });
+  el.addEventListener('pointercancel', () => { dragging = false; startX = null; _targetRotY = 0; });
+}
+
+function ctxRRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+  ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+  ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+  ctx.closePath();
+}
+
+function makeBackTex() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 748;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1a2233'; ctx.fillRect(0, 0, 512, 748);
+  // 도트 그리드
+  ctx.fillStyle = 'rgba(55,65,81,0.55)';
+  for (let x = 28; x < 512; x += 34) for (let y = 28; y < 748; y += 34) ctx.fillRect(x, y, 2.5, 2.5);
+  // 테두리
+  ctx.strokeStyle = '#374151'; ctx.lineWidth = 10;
+  ctxRRect(ctx, 14, 14, 484, 720, 36); ctx.stroke();
+  // 내부 글로우
+  ctx.strokeStyle = 'rgba(96,165,250,0.18)'; ctx.lineWidth = 2.5;
+  ctxRRect(ctx, 26, 26, 460, 696, 30); ctx.stroke();
+  // 아이콘
+  ctx.font = '128px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'white'; ctx.fillText('💪', 256, 330);
+  // 라벨
+  ctx.fillStyle = '#3a4a5a'; ctx.font = 'bold 26px "Segoe UI"';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('HOMTFIT', 256, 490);
+  return new THREE.CanvasTexture(c);
+}
+
+
+function drawFrontCanvas(ctx, card) {
+  const { k, s, v, r, ex } = card;
+  const accent = SUIT_COLOR[k];
+
+  ctx.clearRect(0, 0, 512, 748);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 512, 748);
+
+  // 테두리
+  ctx.strokeStyle = accent; ctx.lineWidth = 14;
+  ctxRRect(ctx, 7, 7, 498, 734, 36); ctx.stroke();
+
+  // 왼쪽 상단 코너
+  ctx.fillStyle = accent;
+  ctx.font = 'bold 80px "Segoe UI"'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(v, 32, 18);
+  ctx.font = '52px serif'; ctx.fillText(s.sym, 36, 96);
+
+  // 오른쪽 하단 코너
+  ctx.save(); ctx.translate(480, 730); ctx.rotate(Math.PI);
+  ctx.font = 'bold 80px "Segoe UI"'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(v, 0, 0);
+  ctx.font = '52px serif'; ctx.fillText(s.sym, 4, 76); ctx.restore();
+
+  // 캐릭터는 DOM overlay로 처리 (canvas taint 방지)
+  ctx.fillStyle = accent + '18';
+  ctx.beginPath(); ctx.arc(256, 328, 150, 0, Math.PI * 2); ctx.fill();
+
+  // 운동 이름
+  ctx.fillStyle = '#111827'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+  ctx.font = 'bold 46px "Segoe UI"';
+  if (ctx.measureText(ex.name).width > 430) ctx.font = 'bold 34px "Segoe UI"';
+  ctx.fillText(ex.name, 256, 560);
+
+  // 횟수 뱃지
+  ctx.fillStyle = accent + '22';
+  ctxRRect(ctx, 176, 572, 160, 52, 26); ctx.fill();
+  ctx.fillStyle = accent; ctx.font = 'bold 34px "Segoe UI"';
+  ctx.fillText(`${r}회`, 256, 608);
+
+  // 카테고리
+  ctx.fillStyle = accent + 'aa'; ctx.font = '22px "Segoe UI"';
+  ctx.fillText(s.name, 256, 700);
+}
+
+initCard3D();
+
+// ── 자동 뒤집기 ──
+let autoFlipTimer = null;
+let autoFlipTick  = null;
+
+function scheduleAutoFlip(delaySecs) {
+  clearTimeout(autoFlipTimer);
+  clearInterval(autoFlipTick);
+
+  let n = delaySecs;
+  const hint = document.getElementById('flipHint');
+  hint.classList.remove('hidden');
+  hint.textContent = `${n}초 후 자동 시작`;
+
+  autoFlipTick = setInterval(() => {
+    n--;
+    if (n > 0) hint.textContent = `${n}초 후 자동 시작`;
+  }, 1000);
+
+  autoFlipTimer = setTimeout(() => {
+    clearInterval(autoFlipTick);
+    doAutoFlip();
+  }, delaySecs * 1000);
+}
+
+function doAutoFlip() {
+  if (phase !== 'idle') return;
+  _targetRotY = Math.PI;
+  document.getElementById('flipHint').classList.add('hidden');
+  setTimeout(onFlipped, 400);
+}
+
+// ── YouTube 음악 ──
+function toggleMusic() {
+  const panel = document.getElementById('musicPanel');
+  const isHidden = panel.style.display === 'none' || panel.style.display === '';
+  panel.style.display = isHidden ? 'block' : 'none';
+  document.getElementById('btnMusic').style.opacity = isHidden ? '1' : '0.45';
+}
+
+function extractYouTubeId(url) {
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/\s]+)/);
+  return m ? m[1] : null;
+}
+
+function loadMusic() {
+  const url = document.getElementById('ytUrl').value.trim();
+  const id  = extractYouTubeId(url);
+  if (!id) { alert('올바른 YouTube URL을 입력해주세요'); return; }
+  document.getElementById('ytContainer').innerHTML = `
+    <iframe
+      src="https://www.youtube.com/embed/${id}?autoplay=1&controls=1"
+      width="100%" height="110"
+      allow="autoplay; encrypted-media"
+      allowfullscreen
+      style="border:none;border-radius:8px;display:block;">
+    </iframe>`;
+}
+
+// 초기화
+goHome();
+</script>
+
+<!-- ── 음악 패널 ── -->
+<div id="musicPanel" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:#1f2937;border-top:1px solid #374151;z-index:300;padding:12px 16px 16px;">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+    <input id="ytUrl" type="url" placeholder="YouTube URL 붙여넣기..."
+      style="flex:1;background:#111827;border:1px solid #374151;border-radius:8px;padding:8px 12px;color:#f9fafb;font-size:0.82rem;outline:none;">
+    <button onclick="loadMusic()" style="padding:8px 14px;background:#3b82f6;border:none;border-radius:8px;color:#fff;font-size:0.82rem;cursor:pointer;white-space:nowrap;font-weight:700;">재생</button>
+    <button onclick="toggleMusic()" style="padding:6px 8px;background:none;border:none;color:#6b7280;font-size:1rem;cursor:pointer;">✕</button>
+  </div>
+  <div id="ytContainer"></div>
+</div>
+
+</body>
+</html>
