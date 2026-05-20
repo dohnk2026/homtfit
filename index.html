@@ -295,6 +295,7 @@ const SUITS = {
       { name: '스쿼트',          eq: 'body'     },
       { name: '런지',            eq: 'body'     },
       { name: '덤벨 데드리프트', eq: 'dumbbell' },
+      { name: '레그레이즈',      eq: 'body'     },
     ]
   },
   heart: {
@@ -313,13 +314,17 @@ const SUITS = {
       { name: '덤벨 로우',         eq: 'dumbbell' },
       { name: '덤벨 컬',           eq: 'dumbbell' },
       { name: '덤벨 사레레',       eq: 'dumbbell' },
+      { name: '크런치',            eq: 'body'     },
     ]
   },
   club: {
-    sym: '♣', name: '코어', cls: 's-club',
+    sym: '♣', name: '근력', cls: 's-club',
     ex: [
-      { name: '레그레이즈', eq: 'body' },
-      { name: '크런치',     eq: 'body' },
+      { name: '덤벨 숄더프레스',   eq: 'dumbbell' },
+      { name: '덤벨 체스트프레스', eq: 'dumbbell' },
+      { name: '덤벨 로우',         eq: 'dumbbell' },
+      { name: '덤벨 컬',           eq: 'dumbbell' },
+      { name: '덤벨 사레레',       eq: 'dumbbell' },
     ]
   },
 };
@@ -336,8 +341,7 @@ function toReps(v) {
 
 // 운동 종류별 휴식 시간 (초)
 function calcRest(suitKey, reps) {
-  const base = { spade: 45, heart: 60, diamond: 35, club: 25 }[suitKey] ?? 40;
-  return base + Math.max(0, reps - 8) * 3;
+  return 30;
 }
 
 // 운동 종류별 운동 시간 (초)
@@ -655,7 +659,9 @@ const SUIT_COLOR = { spade:'#2563eb', heart:'#dc2626', diamond:'#d97706', club:'
 
 const EX_IMG_MAP = {
   '스쿼트':          'ex_squat.png',
+  '덤벨 스쿼트':     'ex_squat.png',
   '런지':            'ex_lunge.png',
+  '덤벨 런지':       'ex_lunge.png',
   '덤벨 데드리프트': 'ex_deadlift.png',
   '버피':            'ex_burpee.png',
   'G2OH (원판)':     'ex_g2oh.png',
