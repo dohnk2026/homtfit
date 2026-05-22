@@ -286,70 +286,65 @@
 
 <script>
 // ── Data ──
-const DECK_SIZE = 52;
+const DECK_SIZE = 36;
 
 const SUITS = {
-  spade: {
-    sym: '♠', name: '하체', cls: 's-spade',
-    ex: [
-      { name: '스쿼트',          eq: 'body'     },
-      { name: '런지',            eq: 'body'     },
-      { name: '덤벨 데드리프트', eq: 'dumbbell' },
-      { name: '레그레이즈',      eq: 'body'     },
-    ]
-  },
-  heart: {
-    sym: '♥', name: '유산소', cls: 's-heart',
-    ex: [
-      { name: '버피',        eq: 'body'  },
-      { name: 'G2OH (원판)', eq: 'plate' },
-    ]
-  },
-  diamond: {
-    sym: '♦', name: '상체', cls: 's-diamond',
-    ex: [
-      { name: '푸쉬업',            eq: 'body'     },
-      { name: '덤벨 숄더프레스',   eq: 'dumbbell' },
-      { name: '덤벨 체스트프레스', eq: 'dumbbell' },
-      { name: '덤벨 로우',         eq: 'dumbbell' },
-      { name: '덤벨 컬',           eq: 'dumbbell' },
-      { name: '덤벨 사레레',       eq: 'dumbbell' },
-      { name: '크런치',            eq: 'body'     },
-    ]
-  },
-  club: {
-    sym: '♣', name: '근력', cls: 's-club',
-    ex: [
-      { name: '덤벨 숄더프레스',   eq: 'dumbbell' },
-      { name: '덤벨 체스트프레스', eq: 'dumbbell' },
-      { name: '덤벨 로우',         eq: 'dumbbell' },
-      { name: '덤벨 컬',           eq: 'dumbbell' },
-      { name: '덤벨 사레레',       eq: 'dumbbell' },
-    ]
-  },
+  spade:   { sym: '♠', cls: 's-spade'   },
+  heart:   { sym: '♥', cls: 's-heart'   },
+  diamond: { sym: '♦', cls: 's-diamond' },
+  club:    { sym: '♣', cls: 's-club'    },
 };
 
-const VALS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-const EQ_LABEL = { body: '맨몸', dumbbell: '덤벨', plate: '원판' };
-const EQ_DOT   = { body: 'e-body', dumbbell: 'e-dumbbell', plate: 'e-plate' };
+// 운동 정의 (eq, 카드 하단 표시 카테고리)
+const EXERCISE_DEF = {
+  '스쿼트':            { eq: 'body',     cat: '하체'   },
+  '런지':              { eq: 'body',     cat: '하체'   },
+  '덤벨 데드리프트':   { eq: 'dumbbell', cat: '하체'   },
+  '레그레이즈':        { eq: 'body',     cat: '코어'   },
+  '버피':              { eq: 'body',     cat: '유산소' },
+  'G2OH (원판)':       { eq: 'plate',    cat: '유산소' },
+  '푸쉬업':            { eq: 'body',     cat: '가슴'   },
+  '덤벨 숄더프레스':   { eq: 'dumbbell', cat: '어깨'   },
+  '덤벨 체스트프레스': { eq: 'dumbbell', cat: '가슴'   },
+  '덤벨 로우':         { eq: 'dumbbell', cat: '등'     },
+  '덤벨 컬':           { eq: 'dumbbell', cat: '팔'     },
+  '덤벨 사레레':       { eq: 'dumbbell', cat: '어깨'   },
+  '크런치':            { eq: 'body',     cat: '코어'   },
+};
 
-// 카드 번호 1~13 → 횟수 5~15 선형 매핑
+// 36장 배분 — 부위별 균형 설계
+// 하체 10 / 상체(가슴+등+어깨+팔) 18 / 코어 5 / 유산소 3
+const EXERCISE_COUNTS = [
+  ['스쿼트',            3],
+  ['런지',              2],
+  ['덤벨 데드리프트',   3],
+  ['레그레이즈',        2],  // 코어 겸 하체
+  ['버피',              2],
+  ['G2OH (원판)',       1],
+  ['푸쉬업',            3],
+  ['덤벨 숄더프레스',   3],
+  ['덤벨 체스트프레스', 3],
+  ['덤벨 로우',         3],
+  ['덤벨 컬',           3],
+  ['덤벨 사레레',       3],
+  ['크런치',            3],
+]; // 합계: 36
+
+const VALS = ['A','2','3','4','5','6','7','8','9'];
+
+// 카드 번호 1~9 → 횟수 5~12
 function toReps(v) {
-  const n = { A:1, J:11, Q:12, K:13 }[v] ?? +v;
-  return Math.round(5 + (n - 1) * 10 / 12);
+  const n = { A:1 }[v] ?? +v;
+  return Math.round(5 + (n - 1) * 7 / 8);
 }
 
-// 운동 종류별 휴식 시간 (초)
-function calcRest(suitKey, reps) {
-  return 30;
-}
+function calcRest() { return 30; }
 
-// 운동 종류별 운동 시간 (초)
-function calcExerciseTime(suitKey, eq, reps) {
-  if (suitKey === 'heart') return reps * 4; // 유산소: 4초/회
-  if (suitKey === 'club')  return reps * 3; // 코어: 3초/회
-  if (eq === 'dumbbell')   return reps * 4; // 덤벨: 4초/회
-  return reps * 3;                          // 맨몸: 3초/회
+const CARDIO_EX = new Set(['버피', 'G2OH (원판)']);
+function calcExerciseTime(ex, reps) {
+  if (CARDIO_EX.has(ex.name))               return reps * 4;
+  if (ex.eq === 'dumbbell' || ex.eq === 'plate') return reps * 4;
+  return reps * 3;
 }
 
 // ── Storage ──
@@ -378,11 +373,36 @@ let ticker = null;
 
 // ── Deck ──
 function buildDeck() {
-  const d = [];
+  // 36 카드 (A-9 × 4수트)
+  const cards = [];
   Object.entries(SUITS).forEach(([k, s]) =>
-    VALS.forEach(v => d.push({ k, s, v, r: toReps(v) }))
+    VALS.forEach(v => cards.push({ k, s, v, r: toReps(v) }))
   );
-  return d; // 52장
+
+  // 운동 풀 36개 (부위별 배분)
+  const exPool = [];
+  EXERCISE_COUNTS.forEach(([name, count]) => {
+    for (let i = 0; i < count; i++)
+      exPool.push({ name, ...EXERCISE_DEF[name] });
+  });
+
+  // 카드와 운동 각각 셔플 후 결합
+  const shuffledCards = shuffle(cards);
+  const shuffledEx    = shuffle(exPool);
+  const deck = shuffledCards.map((card, i) => ({ ...card, ex: shuffledEx[i] }));
+
+  // 같은 운동 연속 방지
+  for (let i = 1; i < deck.length; i++) {
+    if (deck[i].ex.name === deck[i - 1].ex.name) {
+      for (let j = i + 1; j < deck.length; j++) {
+        if (deck[j].ex.name !== deck[i - 1].ex.name) {
+          [deck[i].ex, deck[j].ex] = [deck[j].ex, deck[i].ex];
+          break;
+        }
+      }
+    }
+  }
+  return deck;
 }
 
 function shuffle(a) {
@@ -397,7 +417,7 @@ function shuffle(a) {
 // ── Game Flow ──
 function startGame() {
   weights = getWeights();
-  deck = shuffle(buildDeck());
+  deck = buildDeck();
   deckIdx = 0;
   cardCount = 0;
   t0 = Date.now();
@@ -420,7 +440,6 @@ function startGame() {
 // 카드 드래그로 뒤집힌 직후 호출
 function onFlipped() {
   curCard = deck[deckIdx++];
-  curCard.ex = pickEx(curCard.k);
   renderFront(curCard);
   showHint(false);
   startPrep();
@@ -454,7 +473,7 @@ function startExercise() {
     saveWeights(weights);
   }
 
-  const total = calcExerciseTime(curCard.k, curCard.ex.eq, curCard.r);
+  const total = calcExerciseTime(curCard.ex, curCard.r);
   document.getElementById('gPhase').textContent = '운동 중';
   startTimer(total, '#f59e0b', '운동 중', () => beginRest());
 }
@@ -841,7 +860,7 @@ function drawFrontCanvas(ctx, card) {
 
   // 카테고리
   ctx.fillStyle = accent + 'aa'; ctx.font = '22px "Segoe UI"';
-  ctx.fillText(s.name, 256, 700);
+  ctx.fillText(ex.cat, 256, 700);
 }
 
 initCard3D();
