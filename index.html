@@ -582,10 +582,6 @@ function startTimer(totalSecs, color, label, onDone) {
 }
 
 // ── Helpers ──
-function pickEx(suitKey) {
-  const list = SUITS[suitKey].ex;
-  return list[Math.floor(Math.random() * list.length)];
-}
 
 function adjW(delta) {
   curWeight = Math.max(4, Math.min(24, curWeight + delta));
